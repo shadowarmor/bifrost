@@ -16,6 +16,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/maximhq/bifrost/core/network"
 	"github.com/maximhq/bifrost/core/schemas"
 )
 
@@ -246,6 +247,13 @@ func isTransientError(err error) bool {
 	}
 
 	errStr := err.Error()
+
+	// Policy-blocked dials (SSRF/MCP egress gates) are NEVER retryable —
+	// retrying cannot change a policy decision.
+	var blockedDial *network.BlockedDialError
+	if errors.As(err, &blockedDial) {
+		return false
+	}
 
 	// Context errors are NEVER retryable - they indicate the operation exceeded its deadline
 	// If context is cancelled or deadline exceeded, the issue is permanent (not transient)

@@ -166,6 +166,16 @@ func mcpClientDialContext(resolver ipLookuper, dial func(ctx context.Context, ne
 	}
 }
 
+// BlockedDialError marks a dial rejected by policy (MCPClientDialContext).
+// Callers classifying errors for retry should treat it as permanent:
+// retrying cannot change a policy decision.
+type BlockedDialError struct {
+	IP     net.IP
+	Reason string
+}
+
+func (e *BlockedDialError) Error() string { return e.Reason }
+
 // CheckMCPDialIP validates a single resolved IP for an MCP client dial.
 // IPv6 transition forms (6to4 / NAT64) embedding an IPv4 are unwrapped and
 // re-checked, matching IsPublicIP, so the metadata endpoint cannot be
@@ -173,7 +183,7 @@ func mcpClientDialContext(resolver ipLookuper, dial func(ctx context.Context, ne
 func CheckMCPDialIP(ip net.IP, allowPrivateNetwork bool) error {
 	addr, ok := netip.AddrFromSlice(ip)
 	if !ok {
-		return fmt.Errorf("connection to unparseable IP %v is not allowed", ip)
+		return &BlockedDialError{IP: ip, Reason: fmt.Sprintf("connection to unparseable IP %v is not allowed", ip)}
 	}
 	addr = addr.Unmap()
 	if embedded, isEmbedded := embeddedIPv4(addr); isEmbedded {
@@ -181,15 +191,15 @@ func CheckMCPDialIP(ip net.IP, allowPrivateNetwork bool) error {
 	}
 	ip = addr.AsSlice()
 	if addr.IsUnspecified() {
-		return fmt.Errorf("connection to unspecified IP %s is not allowed", addr)
+		return &BlockedDialError{IP: ip, Reason: fmt.Sprintf("connection to unspecified IP %s is not allowed", addr)}
 	}
 	if IsLinkLocal(ip) {
-		return fmt.Errorf("connection to link-local IP %s is not allowed", addr)
+		return &BlockedDialError{IP: ip, Reason: fmt.Sprintf("connection to link-local IP %s is not allowed", addr)}
 	}
 	// Loopback stays allowed (local MCP servers); other private ranges
 	// (RFC 1918, CGNAT, ULA) require explicit per-client opt-in.
 	if !addr.IsLoopback() && !allowPrivateNetwork && (IsPrivateIP(ip) || cgnat.Contains(addr)) {
-		return fmt.Errorf("connection to private IP %s is not allowed (set allow_private_network on the MCP client to opt in)", addr)
+		return &BlockedDialError{IP: ip, Reason: fmt.Sprintf("connection to private IP %s is not allowed (set allow_private_network on the MCP client to opt in)", addr)}
 	}
 	return nil
 }
