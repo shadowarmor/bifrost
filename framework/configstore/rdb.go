@@ -2244,9 +2244,10 @@ func (s *RDBConfigStore) CreateMCPClientConfig(ctx context.Context, clientConfig
 			ToolsToAutoExecute:     clientConfigCopy.ToolsToAutoExecute,
 			Headers:                clientConfigCopy.Headers,
 			AllowedExtraHeaders:    clientConfigCopy.AllowedExtraHeaders,
-			IsPingAvailable:        clientConfigCopy.IsPingAvailable,
-			NeedsSessionStickiness: clientConfigCopy.NeedsSessionStickiness,
-			ToolSyncInterval:       toolSyncIntervalSec,
+		IsPingAvailable:        clientConfigCopy.IsPingAvailable,
+		NeedsSessionStickiness: clientConfigCopy.NeedsSessionStickiness,
+		AllowPrivateNetwork:    clientConfigCopy.AllowPrivateNetwork,
+		ToolSyncInterval:       toolSyncIntervalSec,
 			ToolExecutionTimeout:   toolExecutionTimeoutSec,
 			AllowOnAllVirtualKeys:  clientConfigCopy.AllowOnAllVirtualKeys,
 			// DiscoveredTools has json:"-" so deepCopy loses it; use original clientConfig
@@ -2436,6 +2437,7 @@ func (s *RDBConfigStore) UpdateMCPClientConfig(ctx context.Context, id string, c
 			"tool_sync_interval":         clientConfigCopy.ToolSyncInterval,
 			"tool_execution_timeout":     clientConfigCopy.ToolExecutionTimeout,
 			"allow_on_all_virtual_keys":  clientConfigCopy.AllowOnAllVirtualKeys,
+			"allow_private_network":      clientConfigCopy.AllowPrivateNetwork,
 			"disabled":                   clientConfigCopy.Disabled,
 			"updated_at":                 time.Now(),
 		}
