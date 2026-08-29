@@ -42,3 +42,11 @@ export interface UserAccessProfile {
 export interface GetUserAccessProfilesResponse {
 	access_profiles: UserAccessProfile[];
 }
+
+// Present in the enterprise build; mirrored here so the OSS fallback API
+// (accessProfileApi.ts) typechecks. Consumed by virtualKeySheet: `governed`
+// gates the locked-banner copy, `profile_name` labels it.
+export interface VKCreationPolicyResponse {
+	governed?: boolean;
+	profile_name?: string;
+}

@@ -127,6 +127,73 @@ func SSRFSafeDialContextWithAllowlist(dialTimeout time.Duration, allow *Allowlis
 	return ssrfSafeDialContext(net.DefaultResolver, dialer.DialContext, allow)
 }
 
+// MCPClientDialContext returns a DialContext for MCP client connections to
+// operator-configured upstream servers. Unlike SSRFSafeDialContext (which
+// guards user-controlled URLs), loopback is allowed so local MCP servers
+// keep working; link-local (cloud instance metadata, 169.254.169.254) and
+// unspecified addresses are always blocked; RFC 1918 / CGNAT / ULA private
+// addresses are blocked unless the operator opts in per client via
+// allowPrivateNetwork. DNS is resolved on every dial and the first
+// validated IP is dialed directly, so a re-resolution cannot swap in a
+// private address after validation (DNS rebinding TOCTOU), and the check
+// holds across redirects and connection-pool re-dials.
+func MCPClientDialContext(dialTimeout time.Duration, allowPrivateNetwork bool) func(ctx context.Context, netw, addr string) (net.Conn, error) {
+	dialer := &net.Dialer{Timeout: dialTimeout}
+	return mcpClientDialContext(net.DefaultResolver, dialer.DialContext, allowPrivateNetwork)
+}
+
+// mcpClientDialContext is the seam behind MCPClientDialContext with
+// injectable resolver and dial for tests.
+func mcpClientDialContext(resolver ipLookuper, dial func(ctx context.Context, network, addr string) (net.Conn, error), allowPrivateNetwork bool) func(ctx context.Context, netw, addr string) (net.Conn, error) {
+	return func(ctx context.Context, netw, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid dial address %q: %w", addr, err)
+		}
+		ips, err := resolver.LookupIP(ctx, "ip", host)
+		if err != nil {
+			return nil, fmt.Errorf("DNS lookup failed for %s: %w", host, err)
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("DNS lookup for %s returned no addresses", host)
+		}
+		for _, ip := range ips {
+			if err := CheckMCPDialIP(ip, allowPrivateNetwork); err != nil {
+				return nil, err
+			}
+		}
+		return dial(ctx, netw, net.JoinHostPort(ips[0].String(), port))
+	}
+}
+
+// CheckMCPDialIP validates a single resolved IP for an MCP client dial.
+// IPv6 transition forms (6to4 / NAT64) embedding an IPv4 are unwrapped and
+// re-checked, matching IsPublicIP, so the metadata endpoint cannot be
+// reached as 2002:a9fe:a9fe:: or 64:ff9b::a9fe:a9fe.
+func CheckMCPDialIP(ip net.IP, allowPrivateNetwork bool) error {
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return fmt.Errorf("connection to unparseable IP %v is not allowed", ip)
+	}
+	addr = addr.Unmap()
+	if embedded, isEmbedded := embeddedIPv4(addr); isEmbedded {
+		addr = embedded
+	}
+	ip = addr.AsSlice()
+	if addr.IsUnspecified() {
+		return fmt.Errorf("connection to unspecified IP %s is not allowed", addr)
+	}
+	if IsLinkLocal(ip) {
+		return fmt.Errorf("connection to link-local IP %s is not allowed", addr)
+	}
+	// Loopback stays allowed (local MCP servers); other private ranges
+	// (RFC 1918, CGNAT, ULA) require explicit per-client opt-in.
+	if !addr.IsLoopback() && !allowPrivateNetwork && (IsPrivateIP(ip) || cgnat.Contains(addr)) {
+		return fmt.Errorf("connection to private IP %s is not allowed (set allow_private_network on the MCP client to opt in)", addr)
+	}
+	return nil
+}
+
 // ssrfSafeDialContext is the seam behind SSRFSafeDialContext and
 // SSRFSafeDialContextWithAllowlist, with injectable resolver and dial for
 // tests. allow may be nil.

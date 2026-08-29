@@ -1564,6 +1564,13 @@ func GenerateMCPClientHash(m tables.TableMCPClient) (string, error) {
 		}
 	}
 
+	// Hash AllowPrivateNetwork so opting a client into private-address dials
+	// via config.json drifts the hash and triggers reconciliation. false is
+	// the zero value and contributes nothing, matching pre-column hashes.
+	if m.AllowPrivateNetwork {
+		hash.Write([]byte("allow_private_network:true"))
+	}
+
 	// Hash PerUserHeaderKeys (sorted for deterministic hashing) so edits to
 	// the declared header-name schema in config.json drift the hash.
 	if len(m.PerUserHeaderKeys) > 0 {

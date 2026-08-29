@@ -69,6 +69,11 @@ type TableMCPClient struct {
 
 	AllowOnAllVirtualKeys bool `gorm:"default:false" json:"allow_on_all_virtual_keys"` // Whether to allow the MCP client to run on all virtual keys
 	Disabled              bool `gorm:"default:false" json:"disabled"`                  // Whether the client is intentionally disabled
+	// AllowPrivateNetwork permits this client's HTTP/SSE dials to RFC 1918 /
+	// CGNAT / ULA private addresses. Link-local (cloud metadata) and
+	// unspecified addresses stay blocked regardless; loopback is always
+	// allowed. Default false = hardened.
+	AllowPrivateNetwork bool `gorm:"default:false" json:"allow_private_network"`
 
 	// PendingOAuthConfigJSON stashes the inline `oauth_config` block from
 	// config.json for shared-OAuth MCP clients (auth_type='oauth') that have

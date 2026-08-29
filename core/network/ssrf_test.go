@@ -351,3 +351,113 @@ func TestSSRFSafeDialContextWithAllowlist_NilAllowlistMatchesPlainDialContext(t 
 		t.Fatalf("expected blocked-connection error, got %v", err)
 	}
 }
+
+// TestCheckMCPDialIP locks in the MCP client dial gate: link-local (cloud
+// metadata) and unspecified addresses are always blocked, private ranges
+// require explicit per-client opt-in, and loopback stays allowed so local
+// MCP servers keep working.
+func TestCheckMCPDialIP(t *testing.T) {
+	tests := []struct {
+		name    string
+		ip      string
+		allow   bool
+		wantErr bool
+	}{
+		{"public v4", "93.184.216.34", false, false},
+		{"public v6", "2606:4700:4700::1111", false, false},
+		{"loopback v4 allowed", "127.0.0.1", false, false},
+		{"loopback v6 allowed", "::1", false, false},
+		{"metadata always blocked", "169.254.169.254", true, true},
+		{"link-local v6 always blocked", "fe80::1", true, true},
+		{"unspecified v4 blocked", "0.0.0.0", true, true},
+		{"unspecified v6 blocked", "::", true, true},
+		{"private 10/8 default blocked", "10.0.0.5", false, true},
+		{"private 192.168 default blocked", "192.168.1.1", false, true},
+		{"private 172.16 default blocked", "172.16.5.4", false, true},
+		{"cgnat default blocked", "100.64.0.1", false, true},
+		{"ula v6 default blocked", "fc00::1", false, true},
+		{"private 10/8 opted in", "10.0.0.5", true, false},
+		{"private 192.168 opted in", "192.168.1.1", true, false},
+		{"cgnat opted in", "100.64.0.1", true, false},
+		{"6to4-wrapped IMDS blocked", "2002:a9fe:a9fe::", true, true},
+		{"nat64-wrapped IMDS blocked", "64:ff9b::a9fe:a9fe", true, true},
+		{"nat64-wrapped private blocked", "64:ff9b::a00:1", false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ip := net.ParseIP(tt.ip)
+			if ip == nil {
+				t.Fatalf("could not parse IP %q", tt.ip)
+			}
+			err := CheckMCPDialIP(ip, tt.allow)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CheckMCPDialIP(%s, allow=%v) err = %v, wantErr %v", tt.ip, tt.allow, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestMCPClientDialContextBlocksPrivateByDefault verifies the dial-time gate
+// rejects a private resolution unless the client opted in, and that the
+// winning IP is dialed directly (no post-validation re-resolution).
+func TestMCPClientDialContextBlocksPrivateByDefault(t *testing.T) {
+	resolver := &fakeResolver{ips: []net.IP{net.ParseIP("10.0.0.5")}}
+	dial := mcpClientDialContext(resolver, func(_ context.Context, _, _ string) (net.Conn, error) {
+		t.Fatal("dial must not be reached for a private IP without opt-in")
+		return nil, nil
+	}, false)
+
+	if _, err := dial(context.Background(), "tcp", "internal.example:8080"); err == nil ||
+		!strings.Contains(err.Error(), "private IP") {
+		t.Fatalf("expected private-IP block, got %v", err)
+	}
+}
+
+func TestMCPClientDialContextAllowsPrivateWithOptIn(t *testing.T) {
+	resolver := &fakeResolver{ips: []net.IP{net.ParseIP("10.0.0.5")}}
+	var dialed string
+	dialErr := errors.New("stop before real network")
+	dial := mcpClientDialContext(resolver, func(_ context.Context, _, addr string) (net.Conn, error) {
+		dialed = addr
+		return nil, dialErr
+	}, true)
+
+	_, err := dial(context.Background(), "tcp", "internal.example:8080")
+	if !errors.Is(err, dialErr) {
+		t.Fatalf("expected sentinel dial error, got %v", err)
+	}
+	if dialed != "10.0.0.5:8080" {
+		t.Fatalf("dialed %q, want validated IP %q", dialed, "10.0.0.5:8080")
+	}
+}
+
+func TestMCPClientDialContextMetadataBlockedEvenWithOptIn(t *testing.T) {
+	resolver := &fakeResolver{ips: []net.IP{net.ParseIP("169.254.169.254")}}
+	dial := mcpClientDialContext(resolver, func(_ context.Context, _, _ string) (net.Conn, error) {
+		t.Fatal("dial must not be reached for the metadata endpoint")
+		return nil, nil
+	}, true)
+
+	if _, err := dial(context.Background(), "tcp", "metadata.example:80"); err == nil ||
+		!strings.Contains(err.Error(), "link-local") {
+		t.Fatalf("expected link-local block, got %v", err)
+	}
+}
+
+func TestMCPClientDialContextAllowsLoopback(t *testing.T) {
+	resolver := &fakeResolver{ips: []net.IP{net.ParseIP("127.0.0.1")}}
+	var dialed string
+	dialErr := errors.New("stop before real network")
+	dial := mcpClientDialContext(resolver, func(_ context.Context, _, addr string) (net.Conn, error) {
+		dialed = addr
+		return nil, dialErr
+	}, false)
+
+	_, err := dial(context.Background(), "tcp", "localhost:3001")
+	if !errors.Is(err, dialErr) {
+		t.Fatalf("expected sentinel dial error, got %v", err)
+	}
+	if dialed != "127.0.0.1:3001" {
+		t.Fatalf("dialed %q, want %q", dialed, "127.0.0.1:3001")
+	}
+}

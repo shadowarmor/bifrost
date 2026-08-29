@@ -549,6 +549,7 @@ func (h *MCPHandler) verifyMCPClientHeaders(ctx *fasthttp.RequestCtx) {
 		AllowedExtraHeaders:       clientConfig.AllowedExtraHeaders,
 		IsPingAvailable:           clientConfig.IsPingAvailable,
 		NeedsSessionStickiness:    clientConfig.NeedsSessionStickiness,
+		AllowPrivateNetwork:       clientConfig.AllowPrivateNetwork,
 		ToolPricing:               clientConfig.ToolPricing,
 		ToolSyncInterval:          int(clientConfig.ToolSyncInterval / time.Second),
 		ToolExecutionTimeout:      int(clientConfig.ToolExecutionTimeout / time.Second),
@@ -723,6 +724,7 @@ func (h *MCPHandler) verifyMCPClientExchange(ctx *fasthttp.RequestCtx) {
 		AllowedExtraHeaders:       clientConfig.AllowedExtraHeaders,
 		IsPingAvailable:           clientConfig.IsPingAvailable,
 		NeedsSessionStickiness:    clientConfig.NeedsSessionStickiness,
+		AllowPrivateNetwork:       clientConfig.AllowPrivateNetwork,
 		ToolPricing:               clientConfig.ToolPricing,
 		ToolSyncInterval:          int(clientConfig.ToolSyncInterval / time.Second),
 		ToolExecutionTimeout:      int(clientConfig.ToolExecutionTimeout / time.Second),
@@ -1294,6 +1296,7 @@ func (h *MCPHandler) getMCPClientsPaginated(ctx *fasthttp.RequestCtx, params con
 			AllowedExtraHeaders:    dbClient.AllowedExtraHeaders,
 			IsPingAvailable:        &isPingAvailable,
 			NeedsSessionStickiness: dbClient.NeedsSessionStickiness,
+			AllowPrivateNetwork:   dbClient.AllowPrivateNetwork,
 			ToolSyncInterval:       time.Duration(dbClient.ToolSyncInterval) * time.Second,
 			ToolExecutionTimeout:   time.Duration(dbClient.ToolExecutionTimeout) * time.Second,
 			ToolPricing:            dbClient.ToolPricing,
@@ -1463,6 +1466,7 @@ type MCPClientUpdateRequest struct {
 	IsCodeModeClient       *bool                           `json:"is_code_mode_client,omitempty"`
 	IsPingAvailable        *bool                           `json:"is_ping_available,omitempty"`
 	NeedsSessionStickiness *bool                           `json:"needs_session_stickiness,omitempty"`
+	AllowPrivateNetwork    *bool                           `json:"allow_private_network,omitempty"`
 	ToolSyncInterval       *int                            `json:"tool_sync_interval,omitempty"`
 	ToolExecutionTimeout   *int                            `json:"tool_execution_timeout,omitempty"`
 	Headers                map[string]schemas.SecretVar    `json:"headers,omitempty"`
@@ -1602,6 +1606,7 @@ func (h *MCPHandler) addMCPClient(ctx *fasthttp.RequestCtx) {
 			IsCodeModeClient:       req.IsCodeModeClient,
 			IsPingAvailable:        &isPingAvailable,
 			NeedsSessionStickiness: req.NeedsSessionStickiness,
+			AllowPrivateNetwork:   req.AllowPrivateNetwork,
 			ToolSyncInterval:       toolSyncInterval,
 			ToolExecutionTimeout:   resolvedToolExecutionTimeout,
 			ConnectionType:         schemas.MCPConnectionType(req.ConnectionType),
@@ -1711,6 +1716,7 @@ func (h *MCPHandler) addMCPClient(ctx *fasthttp.RequestCtx) {
 			IsCodeModeClient:       req.IsCodeModeClient,
 			IsPingAvailable:        &isPingAvailable,
 			NeedsSessionStickiness: req.NeedsSessionStickiness,
+			AllowPrivateNetwork:   req.AllowPrivateNetwork,
 			ToolSyncInterval:       toolSyncInterval,
 			ToolExecutionTimeout:   resolvedToolExecutionTimeout,
 			ConnectionType:         schemas.MCPConnectionType(req.ConnectionType),
@@ -1842,6 +1848,7 @@ func (h *MCPHandler) addMCPClient(ctx *fasthttp.RequestCtx) {
 			IsCodeModeClient:       req.IsCodeModeClient,
 			IsPingAvailable:        &isPingAvailable,
 			NeedsSessionStickiness: req.NeedsSessionStickiness,
+			AllowPrivateNetwork:   req.AllowPrivateNetwork,
 			ToolSyncInterval:       toolSyncInterval,
 			ToolExecutionTimeout:   resolvedToolExecutionTimeout,
 			ConnectionType:         schemas.MCPConnectionType(req.ConnectionType),
@@ -1928,6 +1935,7 @@ func (h *MCPHandler) addMCPClient(ctx *fasthttp.RequestCtx) {
 			IsCodeModeClient:       req.IsCodeModeClient,
 			IsPingAvailable:        req.IsPingAvailable,
 			NeedsSessionStickiness: req.NeedsSessionStickiness,
+			AllowPrivateNetwork:   req.AllowPrivateNetwork,
 			ToolSyncInterval:       toolSyncInterval,
 			ToolExecutionTimeout:   resolvedToolExecutionTimeout,
 			ConnectionType:         schemas.MCPConnectionType(req.ConnectionType),
@@ -1995,6 +2003,7 @@ func (h *MCPHandler) addMCPClient(ctx *fasthttp.RequestCtx) {
 		OauthConfigID:          req.OauthConfigID,
 		IsPingAvailable:        req.IsPingAvailable,
 		NeedsSessionStickiness: req.NeedsSessionStickiness,
+		AllowPrivateNetwork:    req.AllowPrivateNetwork,
 		ToolSyncInterval:       toolSyncInterval,
 		ToolExecutionTimeout:   resolvedToolExecutionTimeout,
 		ToolPricing:            req.ToolPricing,
@@ -2102,6 +2111,10 @@ func (h *MCPHandler) updateMCPClient(ctx *fasthttp.RequestCtx) {
 	needsSessionStickiness := existingConfig.NeedsSessionStickiness
 	if req.NeedsSessionStickiness != nil {
 		needsSessionStickiness = req.NeedsSessionStickiness
+	}
+	allowPrivateNetwork := existingConfig.AllowPrivateNetwork
+	if req.AllowPrivateNetwork != nil {
+		allowPrivateNetwork = *req.AllowPrivateNetwork
 	}
 	toolPricing := existingConfig.ToolPricing
 	if req.ToolPricing != nil {
@@ -2478,6 +2491,7 @@ func (h *MCPHandler) updateMCPClient(ctx *fasthttp.RequestCtx) {
 		AllowedExtraHeaders:    allowedExtraHeaders,
 		IsPingAvailable:        isPingAvailable,
 		NeedsSessionStickiness: needsSessionStickiness,
+		AllowPrivateNetwork:   allowPrivateNetwork,
 		ToolPricing:            toolPricing,
 		ToolSyncInterval:       int(resolvedToolSyncInterval / time.Second),
 		ToolExecutionTimeout:   int(resolvedToolExecutionTimeout / time.Second),
@@ -2537,6 +2551,7 @@ func (h *MCPHandler) updateMCPClient(ctx *fasthttp.RequestCtx) {
 		OauthConfigID:          existingConfig.OauthConfigID,
 		IsPingAvailable:        isPingAvailable,
 		NeedsSessionStickiness: needsSessionStickiness,
+		AllowPrivateNetwork:   allowPrivateNetwork,
 		ToolSyncInterval:       toolSyncInterval,
 		ToolExecutionTimeout:   resolvedToolExecutionTimeout,
 		ToolPricing:            toolPricing,
@@ -3151,6 +3166,7 @@ func (h *MCPHandler) completePerUserOAuthAdminRepair(ctx *fasthttp.RequestCtx, b
 		AllowedExtraHeaders:       clientConfig.AllowedExtraHeaders,
 		IsPingAvailable:           clientConfig.IsPingAvailable,
 		NeedsSessionStickiness:    clientConfig.NeedsSessionStickiness,
+		AllowPrivateNetwork:       clientConfig.AllowPrivateNetwork,
 		ToolPricing:               clientConfig.ToolPricing,
 		ToolSyncInterval:          int(clientConfig.ToolSyncInterval / time.Second),
 		ToolExecutionTimeout:      int(clientConfig.ToolExecutionTimeout / time.Second),
@@ -3409,6 +3425,7 @@ func (h *MCPHandler) completeMCPClientOAuth(ctx *fasthttp.RequestCtx) {
 				AllowedExtraHeaders:       mcpClientConfig.AllowedExtraHeaders,
 				IsPingAvailable:           mcpClientConfig.IsPingAvailable,
 				NeedsSessionStickiness:    mcpClientConfig.NeedsSessionStickiness,
+				AllowPrivateNetwork:       mcpClientConfig.AllowPrivateNetwork,
 				ToolPricing:               mcpClientConfig.ToolPricing,
 				ToolSyncInterval:          int(mcpClientConfig.ToolSyncInterval / time.Second),
 				ToolExecutionTimeout:      int(mcpClientConfig.ToolExecutionTimeout / time.Second),

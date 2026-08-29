@@ -475,6 +475,7 @@ var configstoreMigrationSteps = []migrationStep{
 	{IDs: []string{"add_ultrafast_pricing_columns"}, run: migrationAddUltrafastPricingColumns},
 	{IDs: []string{"add_image_size_quality_pricing_columns"}, run: migrationAddImageSizeQualityPricingColumns},
 	{IDs: []string{"add_batch_jobs_attribution_columns"}, run: migrationAddBatchJobsAttributionColumns},
+	{IDs: []string{"add_mcp_client_allow_private_network_column"}, run: migrationAddMCPClientAllowPrivateNetworkColumn},
 }
 
 // migrationAddBatchJobsAttributionColumns adds the requester-identity columns to
@@ -12247,6 +12248,40 @@ func migrationAddImageSizeQualityPricingColumns(ctx context.Context, db *gorm.DB
 				if err := dropColumnIfExists(tx, logger, &tables.TableModelPricing{}, field); err != nil {
 					return fmt.Errorf("failed to drop column %s: %w", field, err)
 				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running %s migration: %s", migrationName, err.Error())
+	}
+	return nil
+}
+
+// migrationAddMCPClientAllowPrivateNetworkColumn adds the
+// allow_private_network column to config_mcp_clients. Existing rows default
+// to false (hardened): private-address dials stay blocked until an operator
+// explicitly opts a client in.
+func migrationAddMCPClientAllowPrivateNetworkColumn(ctx context.Context, db *gorm.DB, logger schemas.Logger) error {
+	migrationName := "add_mcp_client_allow_private_network_column"
+	logger.Info("[configstore] starting migration %s", migrationName)
+	defer logger.Info("[configstore] finished migration %s", migrationName)
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: migrationName,
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mig := tx.Migrator()
+			if !mig.HasColumn(&tables.TableMCPClient{}, "allow_private_network") {
+				if err := addColumnIfNotExists(tx, logger, &tables.TableMCPClient{}, "allow_private_network"); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if err := dropColumnIfExists(tx, logger, &tables.TableMCPClient{}, "allow_private_network"); err != nil {
+				return err
 			}
 			return nil
 		},

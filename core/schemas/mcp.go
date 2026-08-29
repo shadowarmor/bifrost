@@ -444,6 +444,11 @@ type MCPClientConfig struct {
 	ConnectionString  *SecretVar        `json:"connection_string,omitempty"`   // HTTP or SSE URL (required for HTTP or SSE connections)
 	StdioConfig       *MCPStdioConfig   `json:"stdio_config,omitempty"`        // STDIO configuration (required for STDIO connections)
 	TLSConfig         *MCPTLSConfig     `json:"tls_config,omitempty"`          // TLS configuration for HTTP/SSE connections
+	// AllowPrivateNetwork permits this client's HTTP/SSE connection to
+	// RFC 1918 / CGNAT / ULA private addresses (e.g. MCP servers inside the
+	// cluster or VPC). Link-local (cloud metadata 169.254.169.254) and
+	// unspecified addresses are always blocked; loopback is always allowed.
+	AllowPrivateNetwork bool `json:"allow_private_network,omitempty"`
 	AuthType          MCPAuthType       `json:"auth_type"`                     // Authentication type (none, headers, or oauth)
 	OauthConfigID     *string           `json:"oauth_config_id,omitempty"`     // OAuth config ID (references oauth_configs table)
 	OauthClientID     *SecretVar        `json:"oauth_client_id,omitempty"`     // Redacted OAuth client ID (populated on GET, not stored here)

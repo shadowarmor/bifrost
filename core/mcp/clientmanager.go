@@ -18,6 +18,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/maximhq/bifrost/core/mcp/utils"
+	"github.com/maximhq/bifrost/core/network"
 	"github.com/maximhq/bifrost/core/schemas"
 )
 
@@ -109,13 +110,11 @@ func (m *MCPManager) AcquireClientConn(ctx *schemas.BifrostContext, state *schem
 				return utils.FlattenHeaders(utils.ExtractFilteredExtras(reqCtx, config))
 			}),
 		}
-		perUserTLSClient, tlsErr := m.buildTLSHTTPClient(config.TLSConfig)
+		perUserHTTPClient, tlsErr := m.buildHTTPClient(config.TLSConfig, config.AllowPrivateNetwork)
 		if tlsErr != nil {
-			return nil, fmt.Errorf("failed to build TLS HTTP client: %w", tlsErr)
+			return nil, fmt.Errorf("failed to build HTTP client: %w", tlsErr)
 		}
-		if perUserTLSClient != nil {
-			perUserOpts = append(perUserOpts, transport.WithHTTPBasicClient(perUserTLSClient))
-		}
+		perUserOpts = append(perUserOpts, transport.WithHTTPBasicClient(perUserHTTPClient))
 		initRequest := mcp.InitializeRequest{
 			Params: mcp.InitializeParams{
 				ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
@@ -764,13 +763,11 @@ func (m *MCPManager) VerifyPerUserOAuthConnection(ctx context.Context, config *s
 		finalHeaders["Authorization"] = fmt.Sprintf("Bearer %s", accessToken)
 
 		verifyOpts := []transport.StreamableHTTPCOption{transport.WithHTTPHeaders(finalHeaders)}
-		verifyHTTPClient, tlsErr := m.buildTLSHTTPClient(config.TLSConfig)
+		verifyHTTPClient, tlsErr := m.buildHTTPClient(config.TLSConfig, config.AllowPrivateNetwork)
 		if tlsErr != nil {
-			return nil, fmt.Errorf("failed to build TLS HTTP client for verification: %w", tlsErr)
+			return nil, fmt.Errorf("failed to build HTTP client for verification: %w", tlsErr)
 		}
-		if verifyHTTPClient != nil {
-			verifyOpts = append(verifyOpts, transport.WithHTTPBasicClient(verifyHTTPClient))
-		}
+		verifyOpts = append(verifyOpts, transport.WithHTTPBasicClient(verifyHTTPClient))
 		httpTransport, hErr := transport.NewStreamableHTTP(finalURL, verifyOpts...)
 		if hErr != nil {
 			return nil, fmt.Errorf("failed to create HTTP transport for verification: %w", hErr)
@@ -929,13 +926,11 @@ func (m *MCPManager) VerifyHeadersConnection(ctx context.Context, config *schema
 		}
 
 		headersVerifyOpts := []transport.StreamableHTTPCOption{transport.WithHTTPHeaders(finalHeaders)}
-		headersVerifyTLSClient, tlsErr := m.buildTLSHTTPClient(config.TLSConfig)
+		headersVerifyHTTPClient, tlsErr := m.buildHTTPClient(config.TLSConfig, config.AllowPrivateNetwork)
 		if tlsErr != nil {
-			return nil, fmt.Errorf("failed to build TLS HTTP client for verification: %w", tlsErr)
+			return nil, fmt.Errorf("failed to build HTTP client for verification: %w", tlsErr)
 		}
-		if headersVerifyTLSClient != nil {
-			headersVerifyOpts = append(headersVerifyOpts, transport.WithHTTPBasicClient(headersVerifyTLSClient))
-		}
+		headersVerifyOpts = append(headersVerifyOpts, transport.WithHTTPBasicClient(headersVerifyHTTPClient))
 		httpTransport, hErr := transport.NewStreamableHTTP(finalURL, headersVerifyOpts...)
 		if hErr != nil {
 			return nil, fmt.Errorf("failed to create HTTP transport for verification: %w", hErr)
@@ -1510,6 +1505,7 @@ func (m *MCPManager) UpdateClient(id string, updatedConfig *schemas.MCPClientCon
 			AllowedExtraHeaders:    slices.Clone(updatedConfig.AllowedExtraHeaders),
 			IsPingAvailable:        updatedConfig.IsPingAvailable,
 			NeedsSessionStickiness: updatedConfig.NeedsSessionStickiness,
+			AllowPrivateNetwork:    updatedConfig.AllowPrivateNetwork,
 			ToolSyncInterval:       updatedConfig.ToolSyncInterval,
 			ToolExecutionTimeout:   updatedConfig.ToolExecutionTimeout,
 			AllowOnAllVirtualKeys:  updatedConfig.AllowOnAllVirtualKeys,
@@ -2561,28 +2557,30 @@ func (m *MCPManager) failConnectAttempt(entry *schemas.MCPClientState, config *s
 	}
 }
 
-// buildTLSHTTPClient constructs an *http.Client with a custom TLS configuration derived
-// from MCPTLSConfig. Returns nil when tlsCfg is nil so callers can use the library default.
-// InsecureSkipVerify takes priority over CACertPEM when both are set.
-func (m *MCPManager) buildTLSHTTPClient(tlsCfg *schemas.MCPTLSConfig) (*http.Client, error) {
-	if tlsCfg == nil {
-		return nil, nil
-	}
+// buildHTTPClient constructs an *http.Client for MCP upstream connections.
+// The transport always dials through network.MCPClientDialContext, which
+// blocks link-local (cloud metadata) and unspecified addresses outright and
+// private addresses unless the client config opts in via
+// MCPClientConfig.AllowPrivateNetwork. TLS settings from tlsCfg are merged
+// on top; InsecureSkipVerify takes priority over CACertPEM when both are set.
+func (m *MCPManager) buildHTTPClient(tlsCfg *schemas.MCPTLSConfig, allowPrivateNetwork bool) (*http.Client, error) {
 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-	if tlsCfg.InsecureSkipVerify {
-		m.logger.Warn("MCP client: skipping TLS verification — do not use in production")
-		tlsConfig.InsecureSkipVerify = true
-	} else if tlsCfg.CACertPEM != nil {
-		caPEM := tlsCfg.CACertPEM.GetValue()
-		if caPEM != "" {
-			rootCAs, err := x509.SystemCertPool()
-			if err != nil {
-				rootCAs = x509.NewCertPool()
+	if tlsCfg != nil {
+		if tlsCfg.InsecureSkipVerify {
+			m.logger.Warn("MCP client: skipping TLS verification — do not use in production")
+			tlsConfig.InsecureSkipVerify = true
+		} else if tlsCfg.CACertPEM != nil {
+			caPEM := tlsCfg.CACertPEM.GetValue()
+			if caPEM != "" {
+				rootCAs, err := x509.SystemCertPool()
+				if err != nil {
+					rootCAs = x509.NewCertPool()
+				}
+				if !rootCAs.AppendCertsFromPEM([]byte(caPEM)) {
+					return nil, fmt.Errorf("failed to parse MCP CA certificate PEM")
+				}
+				tlsConfig.RootCAs = rootCAs
 			}
-			if !rootCAs.AppendCertsFromPEM([]byte(caPEM)) {
-				return nil, fmt.Errorf("failed to parse MCP CA certificate PEM")
-			}
-			tlsConfig.RootCAs = rootCAs
 		}
 	}
 	transport, ok := http.DefaultTransport.(*http.Transport)
@@ -2591,6 +2589,7 @@ func (m *MCPManager) buildTLSHTTPClient(tlsCfg *schemas.MCPTLSConfig) (*http.Cli
 	}
 	cloned := transport.Clone()
 	cloned.TLSClientConfig = tlsConfig
+	cloned.DialContext = network.MCPClientDialContext(30*time.Second, allowPrivateNetwork)
 	return &http.Client{Transport: cloned}, nil
 }
 
@@ -2641,13 +2640,11 @@ func (m *MCPManager) createHTTPConnection(ctx context.Context, config *schemas.M
 			return utils.FlattenHeaders(utils.ExtractFilteredExtras(reqCtx, config))
 		}),
 	}
-	httpClient, err := m.buildTLSHTTPClient(config.TLSConfig)
+	httpClient, err := m.buildHTTPClient(config.TLSConfig, config.AllowPrivateNetwork)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build TLS HTTP client: %w", err)
+		return nil, nil, fmt.Errorf("failed to build HTTP client: %w", err)
 	}
-	if httpClient != nil {
-		opts = append(opts, transport.WithHTTPBasicClient(httpClient))
-	}
+	opts = append(opts, transport.WithHTTPBasicClient(httpClient))
 	httpTransport, err := transport.NewStreamableHTTP(url, opts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create HTTP transport: %w", err)
@@ -2746,13 +2743,11 @@ func (m *MCPManager) createSSEConnection(ctx context.Context, config *schemas.MC
 			return utils.FlattenHeaders(utils.ExtractFilteredExtras(reqCtx, config))
 		}),
 	}
-	sseHTTPClient, err := m.buildTLSHTTPClient(config.TLSConfig)
+	sseHTTPClient, err := m.buildHTTPClient(config.TLSConfig, config.AllowPrivateNetwork)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build TLS HTTP client: %w", err)
+		return nil, nil, fmt.Errorf("failed to build HTTP client: %w", err)
 	}
-	if sseHTTPClient != nil {
-		sseOpts = append(sseOpts, transport.WithHTTPClient(sseHTTPClient))
-	}
+	sseOpts = append(sseOpts, transport.WithHTTPClient(sseHTTPClient))
 	sseTransport, err := transport.NewSSE(url, sseOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create SSE transport: %w", err)

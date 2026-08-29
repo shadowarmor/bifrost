@@ -5104,6 +5104,11 @@
           "type": "string",
           "description": "HTTP or SSE URL (alternative to http_config sub-object, required for HTTP or SSE connections)"
         },
+        "allow_private_network": {
+          "type": "boolean",
+          "description": "Allow this client's HTTP/SSE connections to dial RFC 1918/CGNAT/ULA private addresses (e.g. MCP servers inside the cluster/VPC). Link-local (cloud metadata 169.254.169.254) and unspecified addresses are always blocked; loopback is always allowed. Default false.",
+          "default": false
+        },
         "auth_type": {
           "type": "string",
           "enum": [
