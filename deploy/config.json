@@ -1,0 +1,49 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "encryption_key": "env.BIFROST_ENCRYPTION_KEY",
+  "setup_token": "env.BIFROST_SETUP_TOKEN",
+  "client": {
+    "enforce_auth_on_inference": true,
+    "enable_logging": true,
+    "disable_content_logging": true,
+    "log_retention_days": 7,
+    "allowed_origins": [],
+    "whitelisted_routes": ["/health"]
+  },
+  "governance": {
+    "auth_config": {
+      "is_enabled": true,
+      "admin_username": "env.BIFROST_ADMIN_USERNAME",
+      "admin_password": "env.BIFROST_ADMIN_PASSWORD",
+      "disable_auth_on_inference": false
+    }
+  },
+  "config_store": {
+    "enabled": true,
+    "type": "postgres",
+    "config": {
+      "host": "env.PG_HOST",
+      "port": "5432",
+      "user": "env.PG_USER",
+      "password": "env.PG_PASSWORD",
+      "db_name": "bifrost",
+      "ssl_mode": "verify-full",
+      "max_idle_conns": 2,
+      "max_open_conns": 10
+    }
+  },
+  "logs_store": {
+    "enabled": true,
+    "type": "postgres",
+    "config": {
+      "host": "env.PG_HOST",
+      "port": "5432",
+      "user": "env.PG_USER",
+      "password": "env.PG_PASSWORD",
+      "db_name": "bifrost",
+      "ssl_mode": "verify-full",
+      "max_idle_conns": 5,
+      "max_open_conns": 20
+    }
+  }
+}

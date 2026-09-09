@@ -9,6 +9,18 @@
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bifrost)](https://artifacthub.io/packages/search?repo=bifrost)
 [![License](https://img.shields.io/github/license/maximhq/bifrost)](LICENSE)
 
+<!-- fork-azure:start -->
+## Deploy this fork to Azure
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshadowarmor%2Fbifrost%2Fdev%2Finfra%2Fazuredeploy.json)
+
+Deploy Bifrost OSS to **Azure Container Apps with private ingress**, PostgreSQL 16, Key Vault and monitoring. The portal asks for your region and credentials and starts the pinned official Bifrost image; no local build or registry import is required. Connect through the deployment's VNet to reach the admin UI and API. This creates billable Azure resources.
+
+See the [Azure deployment guide](infra/README.md#deploy-from-the-azure-portal) for prerequisites, networking, updates and the CLI option with a private container registry.
+
+This fork checks `maximhq/bifrost:dev` daily and opens or updates a pull request when upstream changes are available. Review and merge those PRs with **Create a merge commit** to retain upstream history and preserve the Azure additions. [Run an upstream check now](https://github.com/shadowarmor/bifrost/actions/workflows/sync-upstream.yml) · [Fork update instructions](infra/UPSTREAM.md)
+<!-- fork-azure:end -->
+
 ## The fastest way to build AI applications that never go down
 
 Bifrost is a high-performance AI gateway that unifies access to 23+ providers (OpenAI, Anthropic, AWS Bedrock, Google Vertex, and more) through a single OpenAI-compatible API. Deploy in seconds with zero configuration and get automatic failover, load balancing, semantic caching, and enterprise-grade features.

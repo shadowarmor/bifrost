@@ -1,0 +1,46 @@
+name: Validate Azure deployment
+
+on:
+  push:
+    branches: [dev]
+    paths: ['infra/**', 'deploy/**', 'scripts/azure/**', '.github/workflows/azure-deployment.yml']
+  pull_request:
+    paths: ['infra/**', 'deploy/**', 'scripts/azure/**', 'transports/config.schema.json', '.github/workflows/azure-deployment.yml']
+  workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: 'Optional upstream sync PR number; validate its merged result'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Resolve validation ref
+        id: ref
+        env:
+          PR_NUMBER: ${{ inputs.pull_request_number }}
+        run: |
+          if [[ -n "$PR_NUMBER" ]]; then
+            [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo 'Expected a numeric PR number'; exit 1; }
+            echo "ref=refs/pull/$PR_NUMBER/merge" >> "$GITHUB_OUTPUT"
+          else
+            echo 'ref=' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          persist-credentials: false
+      - name: Install pinned Bicep compiler
+        run: az bicep install --version v0.47.16
+      - name: Compile and verify portal template
+        shell: pwsh
+        run: ./scripts/azure/build-template.ps1 -Check
+      - name: Lint Bicep
+        run: az bicep lint --file infra/main.bicep

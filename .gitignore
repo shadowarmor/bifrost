@@ -255,3 +255,12 @@ ui/app/routeTree.gen.ts
 bifrost-migration-cli
 
 tests/e2e/clis/reports
+
+# Azure deployment artifacts
+infra/out/
+infra/*.local.*
+.env
+.env.*
+!.env.example
+
+excalidraw.log
