@@ -18,7 +18,9 @@ The upstream image already includes the API and UI. No Dockerfile or source buil
 
 ## Deploy from the Azure portal
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshadowarmor%2Fbifrost%2Fdev%2Finfra%2Fazuredeploy.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fshadowarmor%2Fbifrost%402a0bd0a3e4b05e4394ee3c937b0a3877a5f4bd05%2Finfra%2Fazuredeploy.json)
+
+The button downloads the public template through jsDelivr with CORS enabled, pinned to a specific fork commit. This avoids the GitHub raw endpoint's observed HTTP 503 failure. If the portal still reports a download error, [download the JSON](https://cdn.jsdelivr.net/gh/shadowarmor/bifrost@2a0bd0a3e4b05e4394ee3c937b0a3877a5f4bd05/infra/azuredeploy.json), choose **Build your own template in the editor → Load file**, and select it.
 
 1. Select a subscription, resource group and supported region.
 2. Enter and securely retain the PostgreSQL password, Bifrost admin password, setup token and exactly 32 ASCII characters for the encryption key.
@@ -39,6 +41,8 @@ az bicep install --version v0.47.16
 ```
 
 Commit both source changes and `infra/azuredeploy.json`. The Azure validation workflow rejects a stale generated template. Image changes are reviewed separately from [upstream source updates](UPSTREAM.md); pulling source code does not redeploy Azure or change the pinned image.
+
+After pushing a changed template, update the commit SHA in both README button URLs and the download link above to that published commit. URL-encode the complete CDN URL for the portal's `/uri/` segment. Verify the CDN returns HTTP 200, `Access-Control-Allow-Origin: *`, and JSON matching the committed template before publishing those link changes. The button stays on its reviewed template version until these links are updated.
 
 ## Prerequisites
 

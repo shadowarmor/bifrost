@@ -12,7 +12,7 @@
 <!-- fork-azure:start -->
 ## Deploy this fork to Azure
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fshadowarmor%2Fbifrost%2Fdev%2Finfra%2Fazuredeploy.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fshadowarmor%2Fbifrost%402a0bd0a3e4b05e4394ee3c937b0a3877a5f4bd05%2Finfra%2Fazuredeploy.json)
 
 Deploy Bifrost OSS to **Azure Container Apps with private ingress**, PostgreSQL 16, Key Vault and monitoring. The portal asks for your region and credentials and starts the pinned official Bifrost image; no local build or registry import is required. Connect through the deployment's VNet to reach the admin UI and API. This creates billable Azure resources.
 

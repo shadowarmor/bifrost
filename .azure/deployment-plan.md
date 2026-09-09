@@ -129,7 +129,7 @@ Validation date: 2026-09-09. The only output-secret lint suppression emits provi
 Azure subscription and region, network exposure, traffic and request duration, availability target, OSS versus Enterprise, and budget.
 
 ## Fork publication and portal deployment
-- README button targets the public, compiled infra/azuredeploy.json on shadowarmor/bifrost:dev.
+- README button targets the public, compiled infra/azuredeploy.json through jsDelivr, pinned to fork commit 2a0bd0a3e4b05e4394ee3c937b0a3877a5f4bd05. GitHub raw returned HTTP 503 Backend.max_conn reached; CDN returned HTTP 200, application/json and Access-Control-Allow-Origin: *, with content matching the local artifact. Future template publications must update the pinned README links.
 - infra/portal.bicep deploys the private pilot in one portal operation using the official image directly; it omits ACR. The main CLI template retains the ACR import path by default.
 - infra/image-lock.json pins Bifrost v2.1.1 by Docker manifest digest, verified against Docker Hub with linux/amd64 support on 2026-09-09.
 - scripts/azure/build-template.ps1 generates the ARM template. The Azure workflow uses Bicep 0.47.16 and fails when source and generated artifact differ.
