@@ -45,6 +45,8 @@ jobs:
             }
             const { data: pull } = await github.rest.pulls.create({
               owner, repo, base, head,
+              // This token cannot grant collaborators access to upstream.
+              maintainer_can_modify: false,
               title: 'chore: sync upstream Bifrost dev',
               body: [
                 'Bring the latest commits from `maximhq/bifrost:dev` into this fork.',
