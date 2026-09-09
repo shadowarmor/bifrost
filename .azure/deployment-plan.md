@@ -133,8 +133,8 @@ Azure subscription and region, network exposure, traffic and request duration, a
 - infra/portal.bicep deploys the private pilot in one portal operation using the official image directly; it omits ACR. The main CLI template retains the ACR import path by default.
 - infra/image-lock.json pins Bifrost v2.1.1 by Docker manifest digest, verified against Docker Hub with linux/amd64 support on 2026-09-09.
 - scripts/azure/build-template.ps1 generates the ARM template. The Azure workflow uses Bicep 0.47.16 and fails when source and generated artifact differ.
-- The daily upstream workflow proposes fast-forward mirror updates through one PR into dev, without executing upstream source, force-pushing, or automatically merging.
-- Checks: generated template matches source; Bicep lint passes; workflow YAML parses; config matches the fork schema; five simulated sync cases pass (initial PR, no updates, existing PR, divergence, permission error).
+- The daily upstream workflow proposes updates directly from maximhq:dev through one PR into the fork's dev, without executing upstream source, force-pushing, or automatically merging.
+- Checks: generated template matches source; Bicep lint passes; workflow YAML parses; config matches the fork schema; GitHub-hosted Azure compilation and lint pass.
 - No core, provider or UI code changed; provider-harness and UI build checks do not apply to these infrastructure/workflow changes.
 
 ## Sources

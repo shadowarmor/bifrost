@@ -11,6 +11,12 @@ try {
     & az bicep build --file $taskPortalSource --outfile $taskCandidate
     if ($LASTEXITCODE -ne 0) { throw 'Bicep compilation failed.' }
     $taskCompiled = [IO.File]::ReadAllText($taskCandidate).Replace("`r`n", "`n")
+    $taskTemplate = $taskCompiled | ConvertFrom-Json
+    foreach ($taskParameter in $taskTemplate.parameters.PSObject.Properties) {
+        if ($taskParameter.Value.defaultValue -match '\bvariables\s*\(') {
+            throw "Portal parameter '$($taskParameter.Name)' has an invalid ARM variable reference in its default."
+        }
+    }
     if ($Check) {
         if (-not (Test-Path -LiteralPath $taskPortalTarget)) { throw 'infra/azuredeploy.json is missing.' }
         $taskCommitted = [IO.File]::ReadAllText($taskPortalTarget).Replace("`r`n", "`n")

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "15399006145322238847"
+      "templateHash": "10247768685359181371"
     }
   },
   "parameters": {
@@ -23,15 +23,6 @@
       "maxLength": 32,
       "metadata": {
         "description": "Stable environment naming seed. Reuse when updating this deployment."
-      }
-    },
-    "bifrostImageDigest": {
-      "type": "string",
-      "defaultValue": "[variables('$fxv#0').digest]",
-      "minLength": 71,
-      "maxLength": 71,
-      "metadata": {
-        "description": "Approved upstream image digest. Defaults to the release recorded in image-lock.json; updates require review and template regeneration."
       }
     },
     "postgresPassword": {
@@ -78,7 +69,8 @@
       "tag": "v2.1.1",
       "digest": "sha256:9e65eb4d0b292c25aaf46d194c705344f19c833a29e30155038bbe551eac7245",
       "verifiedOn": "2026-09-09"
-    }
+    },
+    "imageLock": "[variables('$fxv#0')]"
   },
   "resources": [
     {
@@ -104,7 +96,7 @@
             "value": true
           },
           "bifrostImageDigest": {
-            "value": "[parameters('bifrostImageDigest')]"
+            "value": "[variables('imageLock').digest]"
           },
           "postgresPassword": {
             "value": "[parameters('postgresPassword')]"

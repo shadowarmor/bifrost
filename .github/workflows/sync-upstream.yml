@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 concurrency:
@@ -21,47 +21,30 @@ jobs:
     steps:
       # Uses only GitHub's API. No checkout or execution of upstream code while
       # holding a write token; no force pushes and no automatic merges.
-      - name: Update upstream mirror and open pull request
+      - name: Open upstream pull request
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const { owner, repo } = context.repo;
             const base = 'dev';
-            const mirror = 'sync/upstream-dev';
-            const upstream = { owner: 'maximhq', repo: 'bifrost' };
-            const { data: source } = await github.rest.git.getRef({
-              ...upstream, ref: 'heads/dev'
-            });
-
-            let existing;
-            try {
-              existing = await github.rest.git.getRef({ owner, repo, ref: `heads/${mirror}` });
-            } catch (error) {
-              if (error.status !== 404) throw error;
-            }
-            if (!existing) {
-              await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${mirror}`, sha: source.object.sha });
-            } else if (existing.data.object.sha !== source.object.sha) {
-              // Fail visibly on diverged/rewritten history instead of discarding it.
-              await github.rest.git.updateRef({ owner, repo, ref: `heads/${mirror}`, sha: source.object.sha, force: false });
-            }
+            const head = 'maximhq:dev';
 
             const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
-              owner, repo, basehead: `${base}...${mirror}`
+              owner, repo, basehead: `${base}...${head}`
             });
             if (comparison.ahead_by === 0) {
               core.info('The fork already contains the latest upstream dev commits.');
               return;
             }
             const { data: pulls } = await github.rest.pulls.list({
-              owner, repo, state: 'open', base, head: `${owner}:${mirror}`
+              owner, repo, state: 'open', base, head
             });
             if (pulls.length) {
-              core.info(`Updated existing upstream PR: ${pulls[0].html_url}`);
+              core.info(`Upstream PR already tracks the source branch: ${pulls[0].html_url}`);
               return;
             }
             const { data: pull } = await github.rest.pulls.create({
-              owner, repo, base, head: mirror,
+              owner, repo, base, head,
               title: 'chore: sync upstream Bifrost dev',
               body: [
                 'Bring the latest commits from `maximhq/bifrost:dev` into this fork.',

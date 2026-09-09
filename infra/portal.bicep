@@ -9,10 +9,7 @@ param location string = resourceGroup().location
 @maxLength(32)
 param environmentName string = 'bifrost-dev'
 
-@description('Approved upstream image digest. Defaults to the release recorded in image-lock.json; updates require review and template regeneration.')
-@minLength(71)
-@maxLength(71)
-param bifrostImageDigest string = loadJsonContent('./image-lock.json').digest
+var imageLock = loadJsonContent('./image-lock.json')
 
 @secure()
 @minLength(16)
@@ -46,7 +43,7 @@ module deployment './main.bicep' = {
     environmentName: environmentName
     deployGateway: true
     useUpstreamImage: true
-    bifrostImageDigest: bifrostImageDigest
+    bifrostImageDigest: imageLock.digest
     postgresPassword: postgresPassword
     bifrostEncryptionKey: bifrostEncryptionKey
     bifrostSetupToken: bifrostSetupToken
